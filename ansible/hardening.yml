@@ -1,0 +1,151 @@
+---
+- name: Harden finance VM and enable HTTPS
+  hosts: all
+  become: yes
+
+  vars:
+    ssh_user: financeadmin
+    nginx_root: /var/www/html
+    cert_path: /etc/ssl/certs/nginx-selfsigned.crt
+    key_path: /etc/ssl/private/nginx-selfsigned.key
+    dhparam_path: /etc/ssl/certs/dhparam.pem
+
+  tasks:
+    # -----------------------------
+    # Update and upgrade system
+    # -----------------------------
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+        autoremove: yes
+
+    # -----------------------------
+    # SSH Hardening
+    # -----------------------------
+    - name: Disable root login in SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin no'
+        state: present
+
+    - name: Disable password authentication in SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        state: present
+
+    - name: Restart SSH
+      service:
+        name: ssh
+        state: restarted
+
+    # -----------------------------
+    # UFW Firewall
+    # -----------------------------
+    - name: Install ufw
+      apt:
+        name: ufw
+        state: present
+
+    - name: Reset UFW to defaults
+      ufw:
+        state: reset
+
+    - name: Deny all incoming connections by default
+      ufw:
+        default: deny
+        direction: incoming
+
+    - name: Allow all outgoing connections by default
+      ufw:
+        default: allow
+        direction: outgoing
+
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        port: 22
+        proto: tcp
+
+    - name: Allow HTTP
+      ufw:
+        rule: allow
+        port: 80
+        proto: tcp
+
+    - name: Allow HTTPS
+      ufw:
+        rule: allow
+        port: 443
+        proto: tcp
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+
+    # -----------------------------
+    # Nginx HTTPS setup
+    # -----------------------------
+    - name: Ensure Nginx is installed
+      apt:
+        name: nginx
+        state: present
+
+    - name: Ensure Nginx is running
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Generate self-signed certificate
+      command: >
+        openssl req -x509 -nodes -days 365
+        -newkey rsa:2048
+        -keyout {{ key_path }}
+        -out {{ cert_path }}
+        -subj "/CN={{ inventory_hostname }}"
+      args:
+        creates: "{{ cert_path }}"
+
+    - name: Generate DH param
+      command: openssl dhparam -out {{ dhparam_path }} 2048
+      args:
+        creates: "{{ dhparam_path }}"
+
+    - name: Configure Nginx for HTTPS
+      copy:
+        dest: /etc/nginx/sites-available/default
+        content: |
+          server {
+              listen 80 default_server;
+              listen [::]:80 default_server;
+              server_name _;
+              return 301 https://$host$request_uri;
+          }
+
+          server {
+              listen 443 ssl default_server;
+              listen [::]:443 ssl default_server;
+
+              ssl_certificate {{ cert_path }};
+              ssl_certificate_key {{ key_path }};
+              ssl_dhparam {{ dhparam_path }};
+
+              ssl_protocols TLSv1.2 TLSv1.3;
+              ssl_ciphers HIGH:!aNULL:!MD5;
+
+              root {{ nginx_root }};
+              index index.html;
+          }
+
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded
+

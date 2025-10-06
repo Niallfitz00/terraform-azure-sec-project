@@ -1,0 +1,35 @@
+name: Deploy Azure VM + Configure
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.9.0
+
+      - name: Configure SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Terraform Init & Apply
+        run: |
+          cd terraform
+          terraform init
+          terraform apply -auto-approve
+
+      - name: Run Ansible Playbook
+        run: |
+          ansible-playbook -i ansible/inventory.ini ansible/setup.yml
