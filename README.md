@@ -2,13 +2,13 @@
 
 **Repository:** [Niallfitz00/terraform-azure-sec-project](https://github.com/Niallfitz00/terraform-azure-sec-project)  
 
-This project demonstrates a secure, automated infrastructure deployment workflow for a finance web application on **Azure** using **Terraform** and **Ansible** with CI/CD best practices.
+This project demonstrates a secure, automated infrastructure deployment workflow for a finance Ib application on **Azure** using **Terraform** and **Ansible** with CI/CD best practices.
 
 ---
 
 ## Overview
 
-We built a secure web VM in Azure with the following goals:
+I built a secure web VM in Azure with the following goals:
 
 1. **Infrastructure as Code**: Terraform defines all cloud resources, ensuring repeatability and version control.
 2. **Configuration Management**: Ansible handles the VM configuration, package installation, and hardening.
