@@ -7,3 +7,4 @@ output "nsg_name" {
   value       = azurerm_network_security_group.nsg_web.name
   description = "Network Security Group applied to the subnet"
 }
+
